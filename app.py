@@ -5,6 +5,7 @@ from bs4 import BeautifulSoup as bs
 from urllib.request import urlopen as uReq
 import logging
 logging.basicConfig(filename="scrapper.log" , level=logging.INFO)
+from pymongo.mongo_client import MongoClient
 
 app = Flask(__name__)
 
@@ -17,61 +18,74 @@ def index():
     if request.method == 'POST':
         try:
             searchString = request.form['content'].replace(" ","")
-            flipkart_url = "https://www.flipkart.com/search?q=" + searchString
-            uClient = uReq(flipkart_url)
-            flipkartPage = uClient.read()
-            uClient.close()
-            flipkart_html = bs(flipkartPage, "html.parser")
-            bigboxes = flipkart_html.findAll("div", {"class": "_1AtVbE col-12-12"})
-            del bigboxes[0:3]
-            box = bigboxes[0]
-            productLink = "https://www.flipkart.com" + box.div.div.div.a['href']
-            prodRes = requests.get(productLink)
-            prodRes.encoding='utf-8'
-            prod_html = bs(prodRes.text, "html.parser")
-            print(prod_html)
-            commentboxes = prod_html.find_all('div', {'class': "_16PBlm"})
-
+            snapdealurl = "https://www.snapdeal.com/search?keyword=" + searchString
+            uClient = requests.get(snapdealurl)
+            uClient.encoding='utf-8'
+            uClient = uClient.text
+            snapdeal_html = bs(uClient, "html.parser")
+            bigboxes = snapdeal_html.select(".product-desc-rating ")
             filename = searchString + ".csv"
             fw = open(filename, "w")
-            headers = "Product, Customer Name, Rating, Heading, Comment \n"
+            headers = "Product, Product Name, original price, discounted price, total rating, filled stars(%) \n"
             fw.write(headers)
             reviews = []
-            for commentbox in commentboxes:
+            for bigbox in bigboxes:
                 try:
-                    #name.encode(encoding='utf-8')
-                    name = commentbox.div.div.find_all('p', {'class': '_2sc7ZR _2V5EHH'})[0].text
+                    product_name = bigbox.select(".product-title ")
+                    product_name = product_name[0].getText()
 
                 except:
-                    logging.info("name")
+                    logging.info("product_name")
 
                 try:
-                    #rating.encode(encoding='utf-8')
-                    rating = commentbox.div.div.div.div.text
-
+                    original_price = bigbox.find_all("span","lfloat product-desc-price strike")
+                    original_price = original_price[0].getText()
 
                 except:
-                    rating = 'No Rating'
-                    logging.info("rating")
+                    logging.info("original_price")
 
                 try:
-                    #commentHead.encode(encoding='utf-8')
-                    commentHead = commentbox.div.div.div.p.text
+                    discounted_price = bigbox.find_all("span","lfloat product-price")
+                    discounted_price = discounted_price[0].getText()
 
                 except:
-                    commentHead = 'No Comment Heading'
-                    logging.info(commentHead)
+                    logging.info("discounted_price")
                 try:
-                    comtag = commentbox.div.div.find_all('div', {'class': ''})
-                    #custComment.encode(encoding='utf-8')
-                    custComment = comtag[0].div.text
+                    total_rating = bigbox.find_all("p","product-rating-count")
+                    total_rating = total_rating[0].getText()
+                except Exception as e:
+                    total_rating = 0
+                    logging.info(e)
+
+                try:
+                    filled_stars = bigbox.select(".filled-stars")
+                    for j in filled_stars:
+                        filled_star_style = j.get("style")
+                        filled_star_perc = filled_star_style[6:11]
                 except Exception as e:
                     logging.info(e)
 
-                mydict = {"Product": searchString, "Name": name, "Rating": rating, "CommentHead": commentHead,
-                          "Comment": custComment}
+                mydict = {"Product": searchString, "product_name": product_name, "original_price": original_price, "discounted_price": discounted_price,
+                          "total_rating": total_rating, "filled_star_perc": filled_star_perc}
                 reviews.append(mydict)
             logging.info("log my final result {}".format(reviews))
+
+            uri = "mongodb+srv://hanypatel1603:datascience@cluster0.0dm5hfx.mongodb.net/?retryWrites=true&w=majority"
+
+            # Create a new client and connect to the server
+            client = MongoClient(uri)
+
+            # Send a ping to confirm a successful connection
+            try:
+                client.admin.command('ping')
+                print("Pinged your deployment. You successfully connected to MongoDB!")
+            except Exception as e:
+                print(e)
+            
+            db = client['review_scrap']
+            review_col = db['review_scrap_data']
+            review_col.insert_many(reviews)
+
             return render_template('result.html', reviews=reviews[0:(len(reviews)-1)])
         except Exception as e:
             logging.info(e)
@@ -84,3 +98,4 @@ def index():
 
 if __name__=="__main__":
     app.run(host="0.0.0.0")
+

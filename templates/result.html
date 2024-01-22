@@ -17,25 +17,26 @@
 <body>
 
   <div class="table-users">
-   <div class="header">Reviews</div>
+   <div class="header">Details</div>
 
    <table cellspacing="0">
       <tr>
          <th>Product</th>
-         <th>Name</th>
-         <th>Rating</th>
-         <th>Comment Heading</th>
-         <th>mycomment </th>
-         <th width="230">Comments</th>
+         <th>Product Name</th>
+         <th>Original price</th>
+         <th>Discounted price</th>
+         <th>Total rating</th>
+         <th>Filled stars(%)</th>
+         
       </tr>
          {% for review in reviews %}
       <tr>
           <td>{{review['Product']}}</td>
-         <td>{{review['Name']}}</td>
-         <td>{{review['Rating']}}</td>
-         <td>{{review['CommentHead']}}</td>
-         <td>{{review['Comment']}} </td>
-         <td>{{review['Comment']}} </td>
+         <td>{{review['product_name']}}</td>
+         <td>{{review['original_price']}}</td>
+         <td>{{review['discounted_price']}}</td>
+         <td>{{review['total_rating']}} </td>
+         <td>{{review['filled_star_perc']}} </td>
        {% endfor %}
    </table>
 </div>
